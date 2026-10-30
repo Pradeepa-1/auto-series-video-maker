@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.autoseries.maker
 
 import android.app.Application
@@ -86,6 +88,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val began = System.currentTimeMillis()
         job = viewModelScope.launch {
             var failed: String? = null
+            var usedFallback = false
             val fracs = FloatArray(list.size)
             val gate = Semaphore(PARALLEL_PARTS)
             status = "Starting…"
@@ -96,7 +99,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                             gate.withPermit {
                                 val tmp = File(ctx.cacheDir, "part_tmp_$i.mp4")
                                 try {
-                                    engine.render(src, m, p, spec, quality, tmp) { f ->
+                                    val fellBack = engine.render(src, m, p, spec, quality, tmp) { f ->
                                         fracs[i] = f
                                         progress = fracs.sum() / list.size
                                     }
@@ -104,6 +107,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                                         Storage.saveVideo(ctx, tmp, projectFolder, p.seriesIndex, p.partInSeries)
                                     }
                                     fracs[i] = 1f
+                                    if (fellBack) usedFallback = true
                                     val at = results.indexOfFirst { it.plan.globalIndex > p.globalIndex }
                                     val item = ExportedPart(p, saved, "Part_%02d".format(p.partInSeries))
                                     if (at < 0) results.add(item) else results.add(at, item)
@@ -123,7 +127,10 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: CancellationException) {
                 cancelled = true
             } catch (e: Exception) {
-                failed = e.message ?: e.javaClass.simpleName
+                android.util.Log.e("AppViewModel", "export failed", e)
+                failed = (e as? androidx.media3.transformer.ExportException)
+                    ?.let { "${it.errorCodeName} — ${it.cause?.message ?: it.message}" }
+                    ?: e.message ?: e.javaClass.simpleName
             }
             val complete = results.size == list.size
             val seriesCount = list.last().seriesIndex
@@ -141,6 +148,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
             val rec = ProjectRecord(projectFolder, m.name, results.size, seriesCount, System.currentTimeMillis(), complete)
             Storage.addHistory(ctx, rec); history.add(0, rec)
             if (failed != null) error = "Export நின்றுவிட்டது: $failed\n${results.size} parts சேமிக்கப்பட்டன."
+            if (failed == null && usedFallback) error = "Blur background உங்கள் phone-ல் வேலை செய்யவில்லை; இருண்ட பின்னணி பயன்படுத்தப்பட்டது."
             finished = true
             screen = Screen.DONE
         }

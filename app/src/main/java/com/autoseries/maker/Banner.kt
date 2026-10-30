@@ -86,20 +86,28 @@ object Banner {
     }
 
     /** Transparent overlay (banner, series name, part label). Used by both the live preview and the export, so they match. */
-    /** Size the clip occupies on the canvas: full width for landscape, never taller than ~1000/1080 of the width. */
-    fun clipSize(w: Int, vw: Int, vh: Int): Pair<Int, Int> {
-        val fit = minOf(w.toFloat() / vw, (1000f * w / 1080f) / vh)
+    /** Size the clip occupies on the canvas: scaled to fit inside w x h without cropping (full width for landscape). */
+    fun clipSize(w: Int, h: Int, vw: Int, vh: Int): Pair<Int, Int> {
+        val fit = minOf(w.toFloat() / vw, h.toFloat() / vh)
         return ((vw * fit).toInt() / 2 * 2).coerceAtLeast(2) to ((vh * fit).toInt() / 2 * 2).coerceAtLeast(2)
     }
 
-    fun render(spec: DesignSpec, w: Int, h: Int, seriesIdx: Int, part: Int, vw: Int = 1920, vh: Int = 1080): Bitmap {
+    fun render(spec: DesignSpec, w: Int, h: Int, seriesIdx: Int, part: Int, vw: Int = 1920, vh: Int = 1080, band: Int? = null): Bitmap {
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val cv = Canvas(bmp)
+        if (band != null) {
+            // Solid background drawn as an overlay with a transparent hole where the clip sits.
+            cv.drawColor(band)
+            val (cw, ch) = clipSize(w, h, vw, vh)
+            val l = (w - cw) / 2f
+            val t0 = (h - ch) / 2f
+            cv.drawRect(l, t0, l + cw, t0 + ch, Paint().apply { xfermode = android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.CLEAR) })
+        }
         val s = w / 1080f
         val t = TEMPLATES[spec.template]
 
         if (spec.title.isNotBlank()) {
-            val videoTop = (h - clipSize(w, vw, vh).second) / 2f
+            val videoTop = (h - clipSize(w, h, vw, vh).second) / 2f
             if (spec.titleStyle == 1) drawPlainTitle(cv, spec, t, w, s, videoTop) else drawBanner(cv, spec, t, w, s)
         }
 
