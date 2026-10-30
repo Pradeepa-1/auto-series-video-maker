@@ -115,7 +115,7 @@ class ExportEngine(private val ctx: Context) {
 
         val encoder = DefaultEncoderFactory.Builder(ctx)
             .setRequestedVideoEncoderSettings(
-                VideoEncoderSettings.Builder().setBitrate(if (quality == 720) 5_000_000 else 8_000_000).build()
+                VideoEncoderSettings.Builder().setBitrate(Storage.videoBitrate(quality)).build()
             )
             .build()
 

@@ -57,9 +57,12 @@ object Storage {
 
     fun freeBytes(ctx: Context): Long = StatFs(ctx.cacheDir.path).availableBytes
 
+    /** Small files on purpose: 720p ≈ 2 Mbps (~12 MB per 50 s), 1080p ≈ 4 Mbps (~25 MB per 50 s). */
+    fun videoBitrate(quality: Int): Int = if (quality == 720) 2_000_000 else 4_000_000
+
     fun estimateTotalBytes(totalMs: Long, quality: Int): Long {
-        val bitrate = if (quality == 720) 5_000_000L else 8_000_000L
-        return (totalMs / 1000) * (bitrate + 128_000) / 8
+        val bitrate = videoBitrate(quality).toLong()
+        return (totalMs / 1000) * (bitrate + 96_000) / 8
     }
 
     /** Copies the rendered file into Movies/AutoSeriesVideoMaker/<project>/<series>/ so it appears in the gallery. */

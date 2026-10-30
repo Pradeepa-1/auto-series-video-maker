@@ -37,7 +37,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var spec by mutableStateOf(DesignSpec(template = Storage.loadInt(app, "template", 0)))
     var splitSec by mutableIntStateOf(Storage.loadInt(app, "split", 50))
     var partsPerSeries by mutableIntStateOf(Storage.loadInt(app, "perSeries", 10))
-    var quality by mutableIntStateOf(Storage.loadInt(app, "quality", 1080))
+    var quality by mutableIntStateOf(Storage.loadInt(app, "quality", 720))
     var error by mutableStateOf<String?>(null)
 
     var progress by mutableStateOf(0f)
