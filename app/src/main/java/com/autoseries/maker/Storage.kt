@@ -71,11 +71,13 @@ object Storage {
             1080 -> 1080
             else -> if (meta.width >= 1000) 1080 else 720
         }
+        // Quality first: never below a sharp floor, follow the source up to a high ceiling.
+        val floor = if (res == 1080) 8_000_000 else 5_000_000
         val bitrate = when {
-            quality == 720 -> 2_500_000
-            quality == 1080 -> 5_000_000
-            meta.bitrate > 0 -> meta.bitrate.coerceIn(2_500_000, 10_000_000)
-            else -> if (res == 1080) 8_000_000 else 5_000_000
+            quality == 720 -> 3_500_000
+            quality == 1080 -> 8_000_000
+            meta.bitrate > 0 -> meta.bitrate.coerceIn(floor, 16_000_000)
+            else -> if (res == 1080) 10_000_000 else 6_000_000
         }
         return Out(res, res * 16 / 9, bitrate)
     }
