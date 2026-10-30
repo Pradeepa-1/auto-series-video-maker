@@ -17,6 +17,7 @@ import androidx.media3.effect.Brightness
 import androidx.media3.effect.GaussianBlur
 import androidx.media3.effect.OverlayEffect
 import androidx.media3.effect.Presentation
+import androidx.media3.effect.RgbMatrix
 import androidx.media3.effect.StaticOverlaySettings
 import androidx.media3.effect.TextureOverlay
 import androidx.media3.transformer.Composition
@@ -73,12 +74,12 @@ class ExportEngine(private val ctx: Context) {
             .setEffects(
                 Effects(
                     emptyList(),
+                    // Shrink to 1/8 size, process there (cheap), then stretch back up. For blur the upscale itself
+                    // gives most of the blur; for a solid colour every pixel is replaced anyway.
                     listOf(
-                        // Shrink to 1/8 size, blur + dim there (cheap), then stretch back up: the upscale itself
-                        // gives most of the blur, and the GPU touches ~64x fewer pixels than a full-size blur.
                         Presentation.createForWidthAndHeight(w / 8, h / 8, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP),
-                        GaussianBlur(2f),
-                        Brightness(-0.25f),
+                        if (spec.bgMode == 1) solidColor(spec.bgColor) else GaussianBlur(2f),
+                        Brightness(if (spec.bgMode == 1) 0f else -0.25f),
                         Presentation.createForWidthAndHeight(w, h, Presentation.LAYOUT_STRETCH_TO_FIT),
                     ),
                 )
@@ -154,6 +155,16 @@ class ExportEngine(private val ctx: Context) {
         } finally {
             overlayBitmap.recycle()
         }
+    }
+
+    /** RGBA matrix that ignores the picture and outputs one colour (input alpha is 1, so column 4 acts as an offset). */
+    private fun solidColor(argb: Int): RgbMatrix {
+        val m = FloatArray(16)
+        m[12] = (argb shr 16 and 0xFF) / 255f
+        m[13] = (argb shr 8 and 0xFF) / 255f
+        m[14] = (argb and 0xFF) / 255f
+        m[15] = 1f
+        return RgbMatrix { _, _ -> m }
     }
 
     private fun even(v: Float): Int = (v.toInt() / 2 * 2).coerceAtLeast(2)

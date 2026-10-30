@@ -54,7 +54,16 @@ val PART_POSITIONS = listOf("Top Right", "Bottom Right", "Bottom Center")
 val ALIGNS = listOf("Left", "Center", "Right")
 val SIZES = listOf("Small", "Medium", "Large")
 
+val BG_MODES = listOf("Blur video", "Solid colour")
+val BG_COLORS = listOf(
+    "Black" to c(0xFF000000), "Navy" to c(0xFF0D1B4C), "Purple" to c(0xFF4A148C), "Red" to c(0xFFB71C1C),
+    "Green" to c(0xFF1B5E20), "Teal" to c(0xFF006064), "Orange" to c(0xFFE65100), "Pink" to c(0xFFAD1457),
+    "Grey" to c(0xFF37474F), "White" to c(0xFFFFFFFF),
+)
+
 data class DesignSpec(
+    val bgMode: Int = 0,
+    val bgColor: Int = BG_COLORS[1].second,
     val title: String = "",
     val seriesName: String = "SERIES",
     val template: Int = 0,

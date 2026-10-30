@@ -6,6 +6,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -165,6 +167,21 @@ private fun SetupScreen(vm: AppViewModel) {
             )
         }
         item {
+            SectionTitle("Background")
+            Chips(BG_MODES, vm.spec.bgMode) { vm.spec = vm.spec.copy(bgMode = it) }
+            if (vm.spec.bgMode == 1) {
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    BG_COLORS.forEach { (name, argb) ->
+                        val sel = vm.spec.bgColor == argb
+                        Box(
+                            Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(Color(argb))
+                                .border(if (sel) 3.dp else 1.dp, if (sel) MaterialTheme.colorScheme.primary else Color.Gray, RoundedCornerShape(12.dp))
+                                .clickable { vm.spec = vm.spec.copy(bgColor = argb) }
+                        )
+                    }
+                }
+            }
             SectionTitle("Banner template")
             Chips(TEMPLATES.map { it.name }, vm.spec.template) { vm.spec = vm.spec.copy(template = it) }
             SectionTitle("Font")
@@ -233,10 +250,13 @@ private fun Preview(vm: AppViewModel) {
     }
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Box(Modifier.height(440.dp).aspectRatio(9f / 16f).clip(RoundedCornerShape(16.dp)).background(Color.Black)) {
+            if (vm.spec.bgMode == 1) Box(Modifier.fillMaxSize().background(Color(vm.spec.bgColor)))
             if (thumb != null) {
                 val img = thumb.asImageBitmap()
-                Image(img, null, Modifier.fillMaxSize().blur(24.dp), contentScale = ContentScale.Crop)
-                Box(Modifier.fillMaxSize().background(Color(0x40000000)))
+                if (vm.spec.bgMode == 0) {
+                    Image(img, null, Modifier.fillMaxSize().blur(24.dp), contentScale = ContentScale.Crop)
+                    Box(Modifier.fillMaxSize().background(Color(0x40000000)))
+                }
                 Image(img, null, Modifier.fillMaxWidth().align(Alignment.Center), contentScale = ContentScale.FillWidth)
             }
             Image(overlay, null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
