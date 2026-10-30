@@ -55,8 +55,9 @@ class ExportEngine(private val ctx: Context) {
         out: File,
         onProgress: (Float) -> Unit,
     ) = withContext(Dispatchers.Main) {
-        val w = if (quality == 720) 720 else 1080
-        val h = if (quality == 720) 1280 else 1920
+        val o = Storage.outputFor(quality, meta)
+        val w = o.w
+        val h = o.h
 
         // Fit the clip into W x (1000/1080 of W) so it never collides with the part label row.
         val fit = min(w.toFloat() / meta.width, (1000f * w / 1080f) / meta.height)
@@ -115,7 +116,7 @@ class ExportEngine(private val ctx: Context) {
 
         val encoder = DefaultEncoderFactory.Builder(ctx)
             .setRequestedVideoEncoderSettings(
-                VideoEncoderSettings.Builder().setBitrate(Storage.videoBitrate(quality)).build()
+                VideoEncoderSettings.Builder().setBitrate(o.bitrate).build()
             )
             .build()
 

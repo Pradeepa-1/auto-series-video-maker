@@ -37,7 +37,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
     var spec by mutableStateOf(DesignSpec(template = Storage.loadInt(app, "template", 0)))
     var splitSec by mutableIntStateOf(Storage.loadInt(app, "split", 50))
     var partsPerSeries by mutableIntStateOf(Storage.loadInt(app, "perSeries", 10))
-    var quality by mutableIntStateOf(Storage.loadInt(app, "quality", 720))
+    var quality by mutableIntStateOf(Storage.loadInt(app, "quality2", 0))
     var error by mutableStateOf<String?>(null)
 
     var progress by mutableStateOf(0f)
@@ -71,14 +71,14 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         val src = uri ?: return
         val list = plans
         if (list.isEmpty()) { error = "No parts to create"; return }
-        val need = Storage.estimateTotalBytes(m.durationMs, quality)
+        val need = Storage.estimateBytes(m.durationMs, quality, m)
         val free = Storage.freeBytes(ctx)
         if (free < need * 12 / 10) {
             error = "Storage குறைவு: தேவை ≈ ${need / 1_000_000} MB, உள்ளது ${free / 1_000_000} MB"
             return
         }
         Storage.saveInt(ctx, "split", splitSec); Storage.saveInt(ctx, "perSeries", partsPerSeries)
-        Storage.saveInt(ctx, "quality", quality); Storage.saveInt(ctx, "template", spec.template)
+        Storage.saveInt(ctx, "quality2", quality); Storage.saveInt(ctx, "template", spec.template)
 
         results.clear(); progress = 0f; finished = false; cancelled = false
         projectFolder = "Project_%03d".format(Storage.nextProjectNumber(ctx))
@@ -134,7 +134,7 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
                     appendLine("Split duration: ${splitSec}s")
                     appendLine("Total parts: ${list.size} (exported ${results.size})")
                     appendLine("Total series: $seriesCount")
-                    appendLine("Resolution: ${if (quality == 720) "720x1280" else "1080x1920"}")
+                    appendLine("Resolution: ${Storage.outputFor(quality, m).let { "${it.w}x${it.h}" }}")
                     appendLine("Status: ${if (complete) "complete" else if (cancelled) "cancelled" else "failed: $failed"}")
                 })
             }

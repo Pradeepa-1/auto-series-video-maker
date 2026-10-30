@@ -213,14 +213,14 @@ private fun SetupScreen(vm: AppViewModel) {
             }
             if (customPer) NumberField("Parts per series", vm.partsPerSeries) { vm.partsPerSeries = it.coerceIn(1, 100) }
             SectionTitle("Quality")
-            Chips(listOf("720p · small files", "1080p · sharper"), if (vm.quality == 720) 0 else 1) { vm.quality = if (it == 0) 720 else 1080 }
+            Chips(listOf("Same as source", "720p · smaller", "1080p"), when (vm.quality) { 720 -> 1; 1080 -> 2; else -> 0 }) { vm.quality = intArrayOf(0, 720, 1080)[it] }
         }
         item {
             Spacer(Modifier.height(12.dp))
             Card {
                 Text("${plans.size} parts · ${plans.lastOrNull()?.seriesIndex ?: 0} series", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 plans.lastOrNull()?.let { Text("Last part: ${it.durationMs / 1000}s", color = Color.Gray) }
-                Text("Size ≈ ${Storage.estimateTotalBytes(m.durationMs, vm.quality) / 1_000_000} MB total (~${Storage.estimateTotalBytes(vm.splitSec * 1000L, vm.quality) / 1_000_000} MB per part)", color = Color.Gray)
+                Text("Size ≈ ${Storage.estimateBytes(m.durationMs, vm.quality, m) / 1_000_000} MB total (~${Storage.estimateBytes(vm.splitSec * 1000L, vm.quality, m) / 1_000_000} MB per part)", color = Color.Gray)
             }
             Spacer(Modifier.height(10.dp))
             Button(

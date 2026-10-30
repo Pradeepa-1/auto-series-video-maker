@@ -10,6 +10,7 @@ data class VideoMeta(
     val height: Int,
     val fps: Float?,
     val hasAudio: Boolean,
+    val bitrate: Int = 0,
 ) {
     val aspect: String get() = if (height == 0) "?" else "%.2f:1".format(width.toFloat() / height)
 }

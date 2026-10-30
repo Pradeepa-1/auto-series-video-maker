@@ -37,7 +37,8 @@ object Storage {
             val fps = key(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)?.toFloatOrNull()
             val audio = key(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO) == "yes"
             require(w > 0 && h > 0 && dur > 0) { "Unsupported or corrupted video" }
-            return VideoMeta(name, size, dur, w, h, fps, audio)
+            val br = key(MediaMetadataRetriever.METADATA_KEY_BITRATE)?.toIntOrNull() ?: 0
+            return VideoMeta(name, size, dur, w, h, fps, audio, br)
         } finally {
             r.release()
         }
@@ -57,13 +58,30 @@ object Storage {
 
     fun freeBytes(ctx: Context): Long = StatFs(ctx.cacheDir.path).availableBytes
 
-    /** Small files on purpose: 720p ≈ 2 Mbps (~12 MB per 50 s), 1080p ≈ 4 Mbps (~25 MB per 50 s). */
-    fun videoBitrate(quality: Int): Int = if (quality == 720) 2_000_000 else 4_000_000
+    class Out(val w: Int, val h: Int, val bitrate: Int)
 
-    fun estimateTotalBytes(totalMs: Long, quality: Int): Long {
-        val bitrate = videoBitrate(quality).toLong()
-        return (totalMs / 1000) * (bitrate + 96_000) / 8
+    /**
+     * quality 0 = same as source: canvas resolution is the nearest 9:16 size that does not downscale the clip
+     * (720x1280 or 1080x1920) and the bitrate follows the source (clamped), so quality is not lost.
+     * 720 / 1080 = fixed, smaller-file presets.
+     */
+    fun outputFor(quality: Int, meta: VideoMeta): Out {
+        val res = when (quality) {
+            720 -> 720
+            1080 -> 1080
+            else -> if (meta.width >= 1000) 1080 else 720
+        }
+        val bitrate = when {
+            quality == 720 -> 2_500_000
+            quality == 1080 -> 5_000_000
+            meta.bitrate > 0 -> meta.bitrate.coerceIn(2_500_000, 10_000_000)
+            else -> if (res == 1080) 8_000_000 else 5_000_000
+        }
+        return Out(res, res * 16 / 9, bitrate)
     }
+
+    fun estimateBytes(ms: Long, quality: Int, meta: VideoMeta): Long =
+        (ms / 1000) * (outputFor(quality, meta).bitrate + 96_000L) / 8
 
     /** Copies the rendered file into Movies/AutoSeriesVideoMaker/<project>/<series>/ so it appears in the gallery. */
     fun saveVideo(ctx: Context, file: File, project: String, series: Int, part: Int): Uri {
