@@ -114,11 +114,12 @@ class ExportEngine(private val ctx: Context) {
             .setEffects(
                 Effects(
                     emptyList(),
-                    // Shrink to 1/8 size, blur + dim there (cheap), then stretch back up.
+                    // Shrink to 1/4 size, real Gaussian blur + slight dim there (16x fewer pixels than full size),
+                    // then stretch back up: smooth result, still fast.
                     listOf(
-                        Presentation.createForWidthAndHeight(w / 8, h / 8, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP),
-                        GaussianBlur(2f),
-                        Brightness(-0.25f),
+                        Presentation.createForWidthAndHeight(w / 4, h / 4, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP),
+                        GaussianBlur(7f),
+                        Brightness(-0.2f),
                         Presentation.createForWidthAndHeight(w, h, Presentation.LAYOUT_STRETCH_TO_FIT),
                     ),
                 )
