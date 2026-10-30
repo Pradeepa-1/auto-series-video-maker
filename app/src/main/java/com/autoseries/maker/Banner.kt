@@ -47,13 +47,14 @@ val FONTS: List<Pair<String, Typeface>> by lazy {
 
 val TITLE_COLORS = listOf(
     "Auto" to 0, "White" to c(0xFFFFFFFF), "Yellow" to c(0xFFFFEB3B),
-    "Black" to c(0xFF111111), "Mint" to c(0xFF69F0AE),
+    "Black" to c(0xFF111111), "Mint" to c(0xFF69F0AE), "Pink" to c(0xFFFF4DA6),
 )
 val PART_STYLES = listOf("PART 01", "PART 1", "EPISODE 01", "பாகம் 01")
 val PART_POSITIONS = listOf("Top Right", "Bottom Right", "Bottom Center")
 val ALIGNS = listOf("Left", "Center", "Right")
 val SIZES = listOf("Small", "Medium", "Large")
 
+val TITLE_STYLES = listOf("Box banner", "Text only (above video)")
 val BG_MODES = listOf("Blur video", "Solid colour")
 val BG_COLORS = listOf(
     "Black" to c(0xFF000000), "Navy" to c(0xFF0D1B4C), "Purple" to c(0xFF4A148C), "Red" to c(0xFFB71C1C),
@@ -62,6 +63,7 @@ val BG_COLORS = listOf(
 )
 
 data class DesignSpec(
+    val titleStyle: Int = 1,
     val bgMode: Int = 0,
     val bgColor: Int = BG_COLORS[1].second,
     val title: String = "",
@@ -84,13 +86,22 @@ object Banner {
     }
 
     /** Transparent overlay (banner, series name, part label). Used by both the live preview and the export, so they match. */
-    fun render(spec: DesignSpec, w: Int, h: Int, seriesIdx: Int, part: Int): Bitmap {
+    /** Size the clip occupies on the canvas: full width for landscape, never taller than ~1000/1080 of the width. */
+    fun clipSize(w: Int, vw: Int, vh: Int): Pair<Int, Int> {
+        val fit = minOf(w.toFloat() / vw, (1000f * w / 1080f) / vh)
+        return ((vw * fit).toInt() / 2 * 2).coerceAtLeast(2) to ((vh * fit).toInt() / 2 * 2).coerceAtLeast(2)
+    }
+
+    fun render(spec: DesignSpec, w: Int, h: Int, seriesIdx: Int, part: Int, vw: Int = 1920, vh: Int = 1080): Bitmap {
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val cv = Canvas(bmp)
         val s = w / 1080f
         val t = TEMPLATES[spec.template]
 
-        if (spec.title.isNotBlank()) drawBanner(cv, spec, t, w, s)
+        if (spec.title.isNotBlank()) {
+            val videoTop = (h - clipSize(w, vw, vh).second) / 2f
+            if (spec.titleStyle == 1) drawPlainTitle(cv, spec, t, w, s, videoTop) else drawBanner(cv, spec, t, w, s)
+        }
 
         val face = FONTS[spec.font].second
         val chipPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { typeface = face; textSize = 54f * s; color = t.chipText }
@@ -115,6 +126,38 @@ object Banner {
             }
         }
         return bmp
+    }
+
+    /** Title as glowing text with no box, sitting just above the video. */
+    private fun drawPlainTitle(cv: Canvas, spec: DesignSpec, t: Template, w: Int, s: Float, videoTop: Float) {
+        val fill = if (spec.titleColor != 0) spec.titleColor else t.accent
+        val tp = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface = FONTS[spec.font].second
+            color = fill
+            setShadowLayer(22f * s, 0f, 0f, fill)
+        }
+        val innerW = (w - 2 * 60f * s).toInt()
+        val align = when (spec.align) {
+            0 -> Layout.Alignment.ALIGN_NORMAL
+            2 -> Layout.Alignment.ALIGN_OPPOSITE
+            else -> Layout.Alignment.ALIGN_CENTER
+        }
+        var size = (64f + 14f * spec.sizeLevel) * s
+        var layout: StaticLayout
+        while (true) {
+            tp.textSize = size
+            layout = StaticLayout.Builder.obtain(spec.title, 0, spec.title.length, tp, innerW).setAlignment(align).build()
+            if (layout.lineCount <= 2 || size <= 26f * s) break
+            size -= 2f * s
+        }
+        val top = (videoTop - 36f * s - layout.height).coerceAtLeast(40f * s)
+        cv.save()
+        cv.translate(60f * s, top)
+        layout.draw(cv)
+        tp.clearShadowLayer()
+        tp.color = fill
+        layout.draw(cv) // crisp second pass over the glow
+        cv.restore()
     }
 
     private fun drawBanner(cv: Canvas, spec: DesignSpec, t: Template, w: Int, s: Float) {

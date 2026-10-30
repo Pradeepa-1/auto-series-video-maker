@@ -182,6 +182,8 @@ private fun SetupScreen(vm: AppViewModel) {
                     }
                 }
             }
+            SectionTitle("Title style")
+            Chips(TITLE_STYLES, vm.spec.titleStyle) { vm.spec = vm.spec.copy(titleStyle = it) }
             SectionTitle("Banner template")
             Chips(TEMPLATES.map { it.name }, vm.spec.template) { vm.spec = vm.spec.copy(template = it) }
             SectionTitle("Font")
@@ -246,8 +248,8 @@ private fun NumberField(label: String, value: Int, onChange: (Int) -> Unit) {
 private fun Preview(vm: AppViewModel) {
     val thumb = vm.thumb
     val firstPlan = vm.plans.firstOrNull()
-    val overlay = remember(vm.spec, firstPlan) {
-        Banner.render(vm.spec, 540, 960, firstPlan?.seriesIndex ?: 1, firstPlan?.partInSeries ?: 1).asImageBitmap()
+    val overlay = remember(vm.spec, firstPlan, vm.meta) {
+        Banner.render(vm.spec, 540, 960, firstPlan?.seriesIndex ?: 1, firstPlan?.partInSeries ?: 1, vm.meta?.width ?: 1920, vm.meta?.height ?: 1080).asImageBitmap()
     }
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Box(Modifier.height(440.dp).aspectRatio(9f / 16f).clip(RoundedCornerShape(16.dp)).background(Color.Black)) {
@@ -258,7 +260,7 @@ private fun Preview(vm: AppViewModel) {
                     Image(img, null, Modifier.fillMaxSize().blur(24.dp), contentScale = ContentScale.Crop)
                     Box(Modifier.fillMaxSize().background(Color(0x40000000)))
                 }
-                Image(img, null, Modifier.fillMaxWidth().align(Alignment.Center), contentScale = ContentScale.FillWidth)
+                Image(img, null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
             }
             Image(overlay, null, Modifier.fillMaxSize(), contentScale = ContentScale.FillBounds)
         }

@@ -94,7 +94,7 @@ class ExportEngine(private val ctx: Context) {
             )
             .build()
 
-        val overlayBitmap = Banner.render(spec, w, h, plan.seriesIndex, plan.partInSeries)
+        val overlayBitmap = Banner.render(spec, w, h, plan.seriesIndex, plan.partInSeries, meta.width, meta.height)
         val overlay = OverlayEffect(ImmutableList.of<TextureOverlay>(BitmapOverlay.createStaticBitmapOverlay(overlayBitmap)))
 
         val compositor = object : VideoCompositorSettings {
