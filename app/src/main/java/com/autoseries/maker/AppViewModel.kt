@@ -14,9 +14,17 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+
+/** Parts rendered at the same time. Phone hardware encoders usually handle 2 sessions comfortably. */
+private const val PARALLEL_PARTS = 2
 
 class AppViewModel(app: Application) : AndroidViewModel(app) {
     private val ctx get() = getApplication<Application>()
@@ -77,28 +85,45 @@ class AppViewModel(app: Application) : AndroidViewModel(app) {
         screen = Screen.EXPORT
         val began = System.currentTimeMillis()
         job = viewModelScope.launch {
-            val tmp = File(ctx.cacheDir, "part_tmp.mp4")
             var failed: String? = null
+            val fracs = FloatArray(list.size)
+            val gate = Semaphore(PARALLEL_PARTS)
+            status = "Starting…"
             try {
-                for ((i, p) in list.withIndex()) {
-                    status = "Part ${i + 1} / ${list.size}  (Series ${p.seriesIndex} · Part ${p.partInSeries})"
-                    engine.render(src, m, p, spec, quality, tmp) { f -> progress = (i + f) / list.size }
-                    val saved = withContext(Dispatchers.IO) {
-                        Storage.saveVideo(ctx, tmp, projectFolder, p.seriesIndex, p.partInSeries).also { tmp.delete() }
-                    }
-                    results.add(ExportedPart(p, saved, "Part_%02d".format(p.partInSeries)))
-                    progress = (i + 1f) / list.size
-                    val done = i + 1
-                    val avg = (System.currentTimeMillis() - began) / done
-                    val left = avg * (list.size - done) / 1000
-                    if (done < list.size) status += "  ·  ~${left / 60}m ${left % 60}s left"
+                coroutineScope {
+                    list.mapIndexed { i, p ->
+                        async {
+                            gate.withPermit {
+                                val tmp = File(ctx.cacheDir, "part_tmp_$i.mp4")
+                                try {
+                                    engine.render(src, m, p, spec, quality, tmp) { f ->
+                                        fracs[i] = f
+                                        progress = fracs.sum() / list.size
+                                    }
+                                    val saved = withContext(Dispatchers.IO) {
+                                        Storage.saveVideo(ctx, tmp, projectFolder, p.seriesIndex, p.partInSeries)
+                                    }
+                                    fracs[i] = 1f
+                                    val at = results.indexOfFirst { it.plan.globalIndex > p.globalIndex }
+                                    val item = ExportedPart(p, saved, "Part_%02d".format(p.partInSeries))
+                                    if (at < 0) results.add(item) else results.add(at, item)
+                                    val done = results.size
+                                    status = "Done $done / ${list.size}"
+                                    if (done < list.size) {
+                                        val left = (System.currentTimeMillis() - began) / done * (list.size - done) / 1000
+                                        status += "  ·  ~${left / 60}m ${left % 60}s left"
+                                    }
+                                } finally {
+                                    tmp.delete()
+                                }
+                            }
+                        }
+                    }.awaitAll()
                 }
             } catch (e: CancellationException) {
                 cancelled = true
             } catch (e: Exception) {
                 failed = e.message ?: e.javaClass.simpleName
-            } finally {
-                tmp.delete()
             }
             val complete = results.size == list.size
             val seriesCount = list.last().seriesIndex

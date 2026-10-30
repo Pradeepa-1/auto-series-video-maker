@@ -74,9 +74,12 @@ class ExportEngine(private val ctx: Context) {
                 Effects(
                     emptyList(),
                     listOf(
-                        Presentation.createForWidthAndHeight(w, h, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP),
-                        GaussianBlur(18f * w / 1080f),
+                        // Shrink to 1/8 size, blur + dim there (cheap), then stretch back up: the upscale itself
+                        // gives most of the blur, and the GPU touches ~64x fewer pixels than a full-size blur.
+                        Presentation.createForWidthAndHeight(w / 8, h / 8, Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP),
+                        GaussianBlur(2f),
                         Brightness(-0.25f),
+                        Presentation.createForWidthAndHeight(w, h, Presentation.LAYOUT_STRETCH_TO_FIT),
                     ),
                 )
             )
